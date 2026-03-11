@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zephyr Device Simulator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        h1 {
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 400;
+            margin-bottom: 16px;
+            opacity: 0.8;
+        }
+        .device-container { position: relative; }
+        .device-frame {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .device-frame img { width: 100%; height: 100%; }
+        .vnc-screen {
+            position: absolute;
+            z-index: 9;
+            overflow: hidden;
+            background: #000;
+        }
+        .device-container.no-frame .vnc-screen { position: relative; }
+        .status-bar {
+            position: fixed;
+            bottom: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+        }
+        .status-dot.connected { background: #00c853; }
+        .status-text { color: #888; font-size: 0.85rem; }
+        .device-btn {
+            position: absolute;
+            z-index: 3;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.7rem;
+            font-weight: 500;
+            user-select: none;
+        }
+        .device-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .device-btn:active, .device-btn.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="device-container" id="device">
+        <div class="vnc-screen" id="vnc-screen"></div>
+        <div class="device-frame" id="device-frame" style="display:none;">
+            <img id="frame-img" src="" alt="Device Frame">
+        </div>
+    </div>
+    <div class="status-bar">
+        <div class="status-dot" id="status-dot"></div>
+        <span class="status-text" id="status-text">Connecting...</span>
+    </div>
+
+    <script src="/config_device.js"></script>
+    <script type="module">
+        import RFB from './vendor/noVNC/core/rfb.js';
+
+        // Default config (overridden by config.js if present)
+        const config = typeof DEVICE_CONFIG !== 'undefined' ? DEVICE_CONFIG : {
+            display: { width: 480, height: 854 },
+            frame: { enabled: false, image: 'device-frame.png', width: 480, height: 854 },
+            screen: { x: 0, y: 0, width: 480, height: 854 },
+            buttons: [],
+            vnc: { wsPort: 6080 }
+        };
+
+        const device = document.getElementById('device');
+        const vncScreen = document.getElementById('vnc-screen');
+        const deviceFrame = document.getElementById('device-frame');
+        const frameImg = document.getElementById('frame-img');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        let rfb = null;
+        const btnElements = [];
+
+        // Setup frame if configured
+        if (config.frame.enabled && config.frame.image) {
+            deviceFrame.style.display = 'block';
+            frameImg.src = config.frame.image;
+        } else {
+            device.classList.add('no-frame');
+        }
+
+        // Create button overlays
+        (config.buttons || []).forEach(btn => {
+            const el = document.createElement('div');
+            el.className = 'device-btn';
+            el.id = btn.id;
+            el.textContent = btn.label;
+            device.appendChild(el);
+            btnElements.push({ el, cfg: btn });
+        });
+
+        // Scale to fit viewport
+        function scaleDevice() {
+            const vh = window.innerHeight - 80;
+            const frameW = config.frame.enabled ? config.frame.width : config.display.width;
+            const frameH = config.frame.enabled ? config.frame.height : config.display.height;
+            const scale = Math.min(vh / frameH, 1);
+
+            device.style.width = (frameW * scale) + 'px';
+            device.style.height = (frameH * scale) + 'px';
+
+            if (config.frame.enabled) {
+                vncScreen.style.top = (config.screen.y * scale) + 'px';
+                vncScreen.style.left = (config.screen.x * scale) + 'px';
+                vncScreen.style.width = (config.screen.width * scale) + 'px';
+                vncScreen.style.height = (config.screen.height * scale) + 'px';
+            } else {
+                vncScreen.style.width = (config.display.width * scale) + 'px';
+                vncScreen.style.height = (config.display.height * scale) + 'px';
+            }
+
+            btnElements.forEach(({ el, cfg }) => {
+                el.style.left = (cfg.x * scale) + 'px';
+                el.style.top = (cfg.y * scale) + 'px';
+                el.style.width = (cfg.w * scale) + 'px';
+                el.style.height = (cfg.h * scale) + 'px';
+            });
+        }
+        scaleDevice();
+        window.addEventListener('resize', scaleDevice);
+
+        // Button handlers
+        function sendKey(btn, down) {
+            if (!rfb) return;
+            rfb.sendKey(btn.cfg.key, btn.cfg.scancode, down);
+            btn.el.classList.toggle('active', down);
+        }
+
+        btnElements.forEach(btn => {
+            ['mousedown', 'touchstart'].forEach(evt => {
+                btn.el.addEventListener(evt, e => { e.preventDefault(); sendKey(btn, true); });
+            });
+            ['mouseup', 'touchend', 'mouseleave', 'touchcancel'].forEach(evt => {
+                btn.el.addEventListener(evt, () => sendKey(btn, false));
+            });
+        });
+
+        // Keyboard mapping: browser KeyboardEvent.key → button id
+        // Arrow keys and single-character keys are matched automatically.
+        // Extend this map for any button whose id doesn't match the browser key name.
+        const KEY_MAP = {
+            'ArrowLeft':  'LEFT',
+            'ArrowRight': 'RIGHT',
+            'ArrowUp':    'UP',
+            'ArrowDown':  'DOWN',
+        };
+        // Build a fast lookup: normalised key string → btnElements entry
+        const keyLookup = new Map();
+        btnElements.forEach(btn => {
+            const id = btn.cfg.id.toUpperCase();
+            // Explicit override from KEY_MAP
+            for (const [browserKey, btnId] of Object.entries(KEY_MAP)) {
+                if (btnId === id) {
+                    keyLookup.set(browserKey, btn);
+                }
+            }
+            // Single-letter buttons map directly to their character (case-insensitive)
+            if (id.length === 1 && !keyLookup.has(id)) {
+                keyLookup.set(id, btn);       // e.g. 'M', 'H', 'S' …
+            }
+        });
+
+        // Prevent arrow / space keys from scrolling the page while focused
+        const blockedBrowserKeys = new Set([...keyLookup.keys(), ' ']);
+        window.addEventListener('keydown', e => {
+            if (blockedBrowserKeys.has(e.key)) e.preventDefault();
+            const btn = keyLookup.get(e.key) ?? keyLookup.get(e.key.toUpperCase());
+            if (btn && !e.repeat) sendKey(btn, true);
+        });
+        window.addEventListener('keyup', e => {
+            const btn = keyLookup.get(e.key) ?? keyLookup.get(e.key.toUpperCase());
+            if (btn) sendKey(btn, false);
+        });
+
+        // VNC connection
+        const wsUrl = `ws://${window.location.hostname}:${config.vnc.wsPort}`;
+
+        function connect() {
+            statusText.textContent = 'Connecting...';
+            statusDot.classList.remove('connected');
+            try {
+                rfb = new RFB(vncScreen, wsUrl);
+                rfb.scaleViewport = true;
+                rfb.resizeSession = false;
+                rfb.showDotCursor = false;
+                rfb.clipViewport = true;
+
+                rfb.addEventListener('connect', () => {
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Connected';
+                });
+                rfb.addEventListener('disconnect', () => {
+                    statusDot.classList.remove('connected');
+                    rfb = null;
+                    statusText.textContent = 'Reconnecting...';
+                    setTimeout(connect, 2000);
+                });
+                rfb.addEventListener('credentialsrequired', () => {
+                    rfb.sendCredentials({ password: '' });
+                });
+            } catch (err) {
+                statusText.textContent = 'Error - retrying...';
+                setTimeout(connect, 2000);
+            }
+        }
+        setTimeout(connect, 500);
+    </script>
+</body>
+</html>

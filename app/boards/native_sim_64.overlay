@@ -1,0 +1,100 @@
+/*
+ * native_sim 64-bit overlay
+ * SDL display + SDL keyboard emulation via gpio-emul-sdl
+ *
+ * Pin | SDL scancode | Key | TOOL_BTN
+ *  0  |     16       |  M  | TOOL_BTN_MENU
+ *  1  |     22       |  S  | TOOL_BTN_FUNC   (settings/function)
+ *  2  |      5       |  B  | TOOL_BTN_BACK
+ *  3  |     80       |  ← | TOOL_BTN_LEFT
+ *  4  |     79       |  → | TOOL_BTN_RIGHT
+ *  5  |     82       |  ↑  | TOOL_BTN_UP
+ *  6  |     81       |  ↓  | TOOL_BTN_DOWN
+ *  7  |     11       |  H  | TOOL_BTN_HERO
+ *  8  |      9       |  F  | TOOL_BTN_FUNC (duplicate shortcut)
+ *  9  |     23       |  T  | TOOL_BTN_BLUETOOTH
+ * 10  |      6       |  C  | TOOL_BTN_CALCULATE
+ */
+
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+	chosen {
+		zephyr,display = &sdl_dc;
+	};
+
+	nav_keys: nav_keys {
+		compatible = "gpio-keys";
+
+		btn_m: btn_m {
+			gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_M>;
+		};
+		btn_s: btn_s {
+			gpios = <&gpio0 1 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_S>;
+		};
+		btn_b: btn_b {
+			gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_B>;
+		};
+		btn_left: btn_left {
+			gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_LEFT>;
+		};
+		btn_right: btn_right {
+			gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_RIGHT>;
+		};
+		btn_up: btn_up {
+			gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_UP>;
+		};
+		btn_down: btn_down {
+			gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_DOWN>;
+		};
+		btn_h: btn_h {
+			gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_H>;
+		};
+		btn_f: btn_f {
+			gpios = <&gpio0 8 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_F>;
+		};
+		btn_t: btn_t {
+			gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_T>;
+		};
+		btn_c: btn_c {
+			gpios = <&gpio0 10 GPIO_ACTIVE_HIGH>;
+			zephyr,code = <INPUT_KEY_C>;
+		};
+	};
+
+	aliases {
+		mt-keypad-settings = &btn_s;
+		mt-keypad-right = &btn_right;
+		mt-keypad-measure = &btn_m;
+		mt-keypad-up = &btn_up;
+		mt-keypad-down = &btn_down;
+		mt-keypad-left = &btn_left;
+	};
+};
+
+&sdl_dc {
+	width = <480>;
+	height = <854>;
+};
+
+&gpio0 {
+	ngpios = <11>;
+	status = "okay";
+
+	sdl_gpio {
+		compatible = "zephyr,gpio-emul-sdl";
+		/* M=16 S=22 B=5 LEFT=80 RIGHT=79 UP=82 DOWN=81 H=11 F=9 T=23 C=6 */
+		scancodes = <16 22  5 80 79 82 81 11  9 23 6>;
+	};
+};
+
