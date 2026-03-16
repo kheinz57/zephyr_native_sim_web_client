@@ -20,7 +20,4 @@ open your webbrowser on http://localhost:7000
 All - execept the web/vendor directory - is licensed under the apache 2.0 license. 
 The vendor licenses are mentioned in the according directories
 
-<video src="doc/demo.mp4" controls="controls" width="100%" height="auto">
-  Your browser does not support the video tag.
-</video>
-
+![screencast demo](doc/screenshot.png))]([https://www.youtube.com/watch?v=VIDEO_ID](https://www.youtube.com/watch?v=qRP5dsVfJUk))
