@@ -20,4 +20,4 @@ open your webbrowser on http://localhost:7000
 All - execept the web/vendor directory - is licensed under the apache 2.0 license. 
 The vendor licenses are mentioned in the according directories
 
-![screencast demo](doc/screenshot.png))]([https://www.youtube.com/watch?v=VIDEO_ID](https://www.youtube.com/watch?v=qRP5dsVfJUk))
+[![screencast demo](doc/screenshot.png))]([https://www.youtube.com/watch?v=VIDEO_ID](https://www.youtube.com/watch?v=qRP5dsVfJUk))
