@@ -47,9 +47,8 @@ sh run.sh
 open your webbrowser on http://localhost:7000
 
 
-<video src="doc/demo.mp4" controls="controls" width="100%" height="auto">
-  Your browser does not support the video tag.
-</video>
+https://www.youtube.com/shorts/F02wGuafyts
+
 
 # ToDo's
 * create a shield or board instead of an overlay only
